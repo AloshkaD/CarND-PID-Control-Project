@@ -1,8 +1,11 @@
 #include <uWS/uWS.h>
-#include <iostream>
 #include "json.hpp"
 #include "PID.h"
 #include <math.h>
+#include <fstream>
+
+// for plotting CTE errors
+// #define _SAVE_CTE_DATA_
 
 // for convenience
 using json = nlohmann::json;
@@ -11,6 +14,13 @@ using json = nlohmann::json;
 constexpr double pi() { return M_PI; }
 double deg2rad(double x) { return x * pi() / 180; }
 double rad2deg(double x) { return x * 180 / pi(); }
+
+#ifdef _SAVE_CTE_DATA_
+  std::string file_name = "/Users/robert/SDCND/Term2/CarND-PID-Control-Project/data/p_0.1_d_1.5_i_0.0005.txt";
+  std::ofstream datafile (file_name);
+
+  int t = 0;
+#endif
 
 // Checks if the SocketIO event has JSON data.
 // If there is data the JSON object in string format will be returned,
@@ -33,7 +43,20 @@ int main()
   uWS::Hub h;
 
   PID pid;
-  // TODO: Initialize the pid variable.
+  pid.Init(0.1, 1.5, 0.0005); // best settings found
+
+  /*
+
+https://robotics.stackexchange.com/questions/167/what-are-good-strategies-for-tuning-pid-loops
+
+  1. Set all gains to zero.
+  2. Increase the P gain until the response to a disturbance is steady oscillation.
+  3. Increase the D gain until the the oscillations go away (i.e. it's critically damped).
+  4. Repeat steps 2 and 3 until increasing the D gain does not stop the oscillations.
+
+  5. Set P and D to the last stable values.
+  6. Increase the I gain until it brings you to the setpoint with the number of oscillations desired (normally zero but a quicker response can be had if you don't mind a couple oscillations of overshoot)
+  */
 
   h.onMessage([&pid](uWS::WebSocket<uWS::SERVER> ws, char *data, size_t length, uWS::OpCode opCode) {
     // "42" at the start of the message means there's a websocket message event.
@@ -51,13 +74,22 @@ int main()
           double speed = std::stod(j[1]["speed"].get<std::string>());
           double angle = std::stod(j[1]["steering_angle"].get<std::string>());
           double steer_value;
-          /*
-          * TODO: Calcuate steering value here, remember the steering value is
-          * [-1, 1].
-          * NOTE: Feel free to play around with the throttle and speed. Maybe use
-          * another PID controller to control the speed!
-          */
-          
+
+          steer_value = pid.TotalError();
+          pid.UpdateError(cte);
+
+#ifdef _SAVE_CTE_DATA_
+          if (!datafile.is_open())
+          {
+            datafile.open(file_name, std::ios_base::app);
+          }
+          datafile << t << " " << cte << "\n";
+          if (datafile.is_open())
+            datafile.close();
+
+          t++;
+#endif
+
           // DEBUG
           std::cout << "CTE: " << cte << " Steering Value: " << steer_value << std::endl;
 
@@ -98,6 +130,7 @@ int main()
   h.onDisconnection([&h](uWS::WebSocket<uWS::SERVER> ws, int code, char *message, size_t length) {
     ws.close();
     std::cout << "Disconnected" << std::endl;
+    //
   });
 
   int port = 4567;

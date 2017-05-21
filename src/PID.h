@@ -1,6 +1,8 @@
 #ifndef PID_H
 #define PID_H
 
+#include <iostream>
+
 class PID {
 public:
   /*
@@ -12,7 +14,7 @@ public:
 
   /*
   * Coefficients
-  */ 
+  */
   double Kp;
   double Ki;
   double Kd;
@@ -30,7 +32,7 @@ public:
   /*
   * Initialize PID.
   */
-  void Init(double Kp, double Ki, double Kd);
+  void Init(double Kp_, double Kd_, double Ki_);
 
   /*
   * Update the PID error variables given cross track error.
